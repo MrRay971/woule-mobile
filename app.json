@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Woule Mobile App",
+    "name": "Woulé",
     "slug": "woule-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -29,11 +29,12 @@
       },
       "package": "com.woule.mobile",
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
-        "FOREGROUND_SERVICE",
-        "NFC"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.NFC"
       ]
     },
     "web": {
@@ -56,11 +57,6 @@
           "systemCodes": []
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "woule-mobile"
-      }
-    }
+    ]
   }
 }
