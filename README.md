@@ -1,277 +1,445 @@
-# 📱 Woule Mobile App
+# 📱 Woulé Mobile App
 
-**Application mobile pour les ambassadeurs Woulé** — Détection NFC + Tracking GPS + Supabase Realtime
-
----
-
-## 🎯 Fonctionnalités
-
-| Feature | Description |
-|---------|-------------|
-| 🔐 **Authentification** | Login Supabase (email/password) |
-| 🏷️ **Détection NFC** | Scan du tag NFC dans le véhicule |
-| 🚗 **Création de session** | `vehicle_sessions` créée automatiquement |
-| 📡 **Tracking GPS** | Points GPS toutes les 10 secondes |
-| ☁️ **Supabase Realtime** | `gps_points` insérés en temps réel |
-| ⏹️ **Arrêt manuel** | Bouton stop → session terminée |
-| ⭐ **Points** | 10 pts/km calculés automatiquement |
+Application React Native (Expo) pour les ambassadeurs Woulé.  
+**Flow principal** : Tap NFC tag dans la voiture → GPS tracking démarré en arrière-plan → Points envoyés à Supabase toutes les 10 secondes.
 
 ---
 
-## 🚀 Installation sur iPhone (GRATUIT — Expo Go)
+## 🗂️ Table des matières
 
-### Étape 1 — Installer Expo Go sur votre iPhone
-
-1. Ouvrez l'**App Store** sur votre iPhone
-2. Recherchez **"Expo Go"**
-3. Installez l'app (gratuite, développée par Expo)
-4. Ouvrez Expo Go et créez un compte (gratuit)
-
-> **Expo Go** est une app sandbox qui permet de faire tourner n'importe quelle app React Native sans passer par l'App Store.
+1. [Architecture](#architecture)
+2. [Fonctionnalités](#fonctionnalités)
+3. [Installation sur iPhone (Expo Go)](#installation-sur-iphone-expo-go)
+4. [Configuration Supabase – Tables SQL](#configuration-supabase--tables-sql)
+5. [Structure du projet](#structure-du-projet)
+6. [Variables d'environnement](#variables-denvironnement)
+7. [Tester NFC et GPS](#tester-nfc-et-gps)
+8. [Build production (EAS)](#build-production-eas)
+9. [Repository GitHub](#repository-github)
 
 ---
 
-### Étape 2 — Lancer le serveur de développement
+## Architecture
 
-Sur votre ordinateur :
-
-```bash
-# Cloner le repo
-git clone https://github.com/MrRay971/woule-mobile.git
-cd woule-mobile
-
-# Installer les dépendances
-npm install
-
-# Lancer le serveur Expo
-npx expo start
-
-# Si iPhone et ordinateur ne sont pas sur le même réseau :
-npx expo start --tunnel
+```
+iPhone (Expo Go)
+     │
+     ├── Supabase Auth (email/password)
+     ├── NFC tag (NTAG213/215 sticker sur la voiture)
+     │        └── react-native-nfc-manager
+     ├── GPS tracking toutes les 10s
+     │        └── expo-location (background)
+     └── Supabase Realtime
+              ├── vehicle_sessions (sessions de trajet)
+              └── gps_points (points GPS)
 ```
 
 ---
 
-### Étape 3 — Scanner le QR code
+## Fonctionnalités
 
-1. Sur votre iPhone, **ouvrez l'app Appareil photo**
-2. Pointez vers le QR code affiché dans le terminal
-3. Une notification apparaît → appuyez dessus
-4. **Expo Go s'ouvre** et charge l'app Woulé
+| Écran | Description |
+|-------|-------------|
+| **Login** | Connexion Supabase email/password |
+| **Tracking** ⭐ | NFC detection → session → GPS → Supabase |
+| **Dashboard** | KPIs, campagnes actives, notifications |
+| **Campagnes** | Liste et détail des campagnes assignées |
+| **Gains** | Points, récompenses, historique |
+| **Profil** | Informations ambassadeur, déconnexion |
 
-> **Alternative** : Dans Expo Go, appuyez sur "Scan QR code"
+### Flow Tracking (écran principal)
 
----
-
-### Étape 4 — Se connecter
-
-Utilisez vos identifiants ambassadeur Woulé (même email/password que sur woule-web.vercel.app).
-
----
-
-## 🏷️ Comment tester le NFC
-
-### Sur un iPhone réel (iOS 11+, iPhone 7 ou plus récent)
-
-> ⚠️ **Le NFC ne fonctionne PAS dans Expo Go** — Expo Go ne permet pas d'accéder aux APIs natives personnalisées (NFC). Pour utiliser le NFC, il faut compiler un `.ipa` avec EAS Build.
-
-#### Option A : Tester avec la simulation NFC (dans Expo Go)
-
-L'app détecte automatiquement que le NFC n'est pas disponible et affiche un bouton **"Simuler un scan NFC"** :
-
-1. Ouvrez l'onglet **🏷️ NFC/Tracking**
-2. Appuyez sur **"Simuler un scan NFC"**
-3. Un tag fictif est généré (`SIM-XXXXXX`)
-4. Le tracking GPS réel démarre immédiatement
-5. Les points GPS sont envoyés vers Supabase
-
-#### Option B : Vrai NFC (EAS Build — app compilée)
-
-```bash
-# Créer un compte EAS (gratuit)
-npx eas login
-
-# Configurer le projet
-npx eas build:configure
-
-# Build iOS pour TestFlight / installation directe
-npx eas build --platform ios --profile preview
-
-# → Reçois un lien de téléchargement .ipa
-# → Installe via Apple Configurator 2 ou TestFlight
+```
+1. Ouverture app → "En attente du tag NFC"
+2. Tap iPhone sur tag NFC du véhicule
+   ├── Tag détecté → vibration + son
+   ├── Session créée dans vehicle_sessions
+   └── GPS démarré (expo-location background)
+3. TRACKING ACTIF affiché
+   ├── Compteur km en temps réel
+   ├── Vitesse actuelle
+   ├── Durée de la session
+   └── Points GPS envoyés toutes les 10s
+4. Bouton STOP pressé → session fermée
+   └── Récapitulatif : km, points, durée
 ```
 
-#### Tags NFC compatibles
+---
 
-L'app fonctionne avec n'importe quel tag NFC standard :
-- **NTAG213 / NTAG215 / NTAG216** (les plus courants, ~0,50€/pièce)
-- **Mifare Ultralight**
-- **Type 4 NFC**
+## Installation sur iPhone (Expo Go)
 
-Les tags peuvent être programmés avec :
-- L'app **NFC Tools** (iOS/Android, gratuite)
-- Inscrivez un texte simple type `woule-vehicule-plaque` sur le tag
+### Prérequis
+- iPhone 7 ou plus récent (NFC disponible sur iOS 13+)
+- iOS 16 ou supérieur recommandé
+- Connexion Wi-Fi
+
+### Étape 1 – Installer Expo Go
+
+1. Ouvrir l'**App Store** sur l'iPhone
+2. Rechercher **"Expo Go"** (icône blanche avec un ⚫)
+3. Télécharger l'app **Expo Go** de la société Expo
+4. Ouvrir l'app une fois installée
+
+### Étape 2 – Scanner le QR code
+
+#### Option A : Via le lien Expo (recommandé)
+
+1. Ouvrir ce lien sur votre iPhone :
+   ```
+   exp://u.expo.dev/update/...
+   ```
+   *(lien généré après le push GitHub — voir section Repository)*
+
+2. iOS proposera d'ouvrir dans Expo Go → **Accepter**
+
+#### Option B : Via Metro Bundler local
+
+> ⚠️ Cette méthode nécessite que l'iPhone soit sur le **même réseau Wi-Fi** que le serveur.
+
+1. Ouvrir Expo Go sur l'iPhone
+2. Appuyer sur **"Enter URL manually"**
+3. Entrer l'URL Metro Bundler :
+   ```
+   exp://IP_DE_VOTRE_MACHINE:8081
+   ```
+4. Appuyer sur **Connect**
+
+#### Option C : Via Expo Go QR Scanner
+
+1. Lancer le serveur Metro sur votre machine :
+   ```bash
+   cd woule-mobile
+   npx expo start --lan
+   ```
+2. Un QR code s'affiche dans le terminal
+3. Ouvrir Expo Go → **Scan QR Code**
+4. Scanner le QR code affiché dans le terminal
+
+### Étape 3 – Connexion dans l'app
+
+1. L'app se charge (écran jaune avec logo Woulé)
+2. Entrer les identifiants ambassadeur :
+   - **Email** : votre email Woulé
+   - **Mot de passe** : votre mot de passe
+3. Appuyer sur **Se connecter**
+4. Vous arrivez sur l'écran **Tracking**
 
 ---
 
-## 📡 Comment tester le tracking GPS
+## Configuration Supabase – Tables SQL
 
-### Test en Expo Go
+> ⚠️ **Action requise** : Exécuter ce SQL dans le Dashboard Supabase avant de tester.
 
-1. Scanner le QR code → ouvrir l'app
-2. Se connecter avec un compte ambassadeur
-3. Aller sur l'onglet **🏷️**
-4. Appuyer sur **"Simuler un scan NFC"**
-5. L'écran passe en mode **"TRACKING ACTIF"**
-6. Vous voyez les coordonnées GPS en temps réel
-7. **Vérifier dans Supabase** :
-   - Table `vehicle_sessions` → 1 nouvelle ligne (`active = true`)
-   - Table `gps_points` → points ajoutés toutes les ~10 secondes
-8. Appuyer sur **"Arrêter le suivi"**
-9. La session est mise à jour (`active = false`, `end_time` renseigné)
+### Lien direct vers l'éditeur SQL
 
-### Vérification Supabase en temps réel
+🔗 **https://supabase.com/dashboard/project/szhiigkayxedicktgvls/sql/new**
 
-Ouvrez [Supabase Dashboard](https://supabase.com/dashboard/project/szhiigkayxedicktgvls) :
+### Script SQL à copier-coller
 
 ```sql
--- Voir les sessions actives
-SELECT * FROM vehicle_sessions WHERE active = true ORDER BY start_time DESC;
+-- ============================================================
+-- WOULE MOBILE APP – Migration 0002
+-- Tables NFC + GPS pour l'application mobile
+-- ============================================================
 
--- Voir les derniers points GPS
-SELECT * FROM gps_points ORDER BY timestamp DESC LIMIT 20;
+-- 1. Table des sessions de véhicule (créées par l'app mobile)
+CREATE TABLE IF NOT EXISTS public.vehicle_sessions (
+  id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  ambassador_id UUID NOT NULL REFERENCES public.ambassadeurs(id) ON DELETE CASCADE,
+  vehicle_id    UUID REFERENCES public.vehicles(id) ON DELETE SET NULL,
+  start_time    TIMESTAMPTZ DEFAULT NOW(),
+  end_time      TIMESTAMPTZ,
+  active        BOOLEAN DEFAULT TRUE,
+  nfc_tag_id    TEXT,
+  total_km      NUMERIC(10,2) DEFAULT 0,
+  points_earned INTEGER DEFAULT 0,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
 
--- Stats par session
-SELECT vs.id, vs.total_km, vs.points_earned, COUNT(gp.id) as nb_points
-FROM vehicle_sessions vs
-LEFT JOIN gps_points gp ON gp.session_id = vs.id
-GROUP BY vs.id ORDER BY vs.start_time DESC;
+-- 2. Table des points GPS (envoyés toutes les 10 secondes)
+CREATE TABLE IF NOT EXISTS public.gps_points (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  session_id UUID NOT NULL REFERENCES public.vehicle_sessions(id) ON DELETE CASCADE,
+  lat        NUMERIC(10,7) NOT NULL,
+  lng        NUMERIC(10,7) NOT NULL,
+  speed      NUMERIC(6,2) DEFAULT 0,
+  timestamp  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. Colonne NFC sur la table vehicles
+ALTER TABLE public.vehicles ADD COLUMN IF NOT EXISTS nfc_tag_id TEXT;
+
+-- 4. Activer Row Level Security
+ALTER TABLE public.vehicle_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.gps_points ENABLE ROW LEVEL SECURITY;
+
+-- 5. Policies vehicle_sessions
+DROP POLICY IF EXISTS "ambassador_own_sessions" ON public.vehicle_sessions;
+CREATE POLICY "ambassador_own_sessions" ON public.vehicle_sessions
+  FOR ALL TO authenticated
+  USING (
+    ambassador_id IN (
+      SELECT id FROM public.ambassadeurs WHERE profile_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    ambassador_id IN (
+      SELECT id FROM public.ambassadeurs WHERE profile_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "service_role_vehicle_sessions" ON public.vehicle_sessions;
+CREATE POLICY "service_role_vehicle_sessions" ON public.vehicle_sessions
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- 6. Policies gps_points
+DROP POLICY IF EXISTS "ambassador_own_gps" ON public.gps_points;
+CREATE POLICY "ambassador_own_gps" ON public.gps_points
+  FOR ALL TO authenticated
+  USING (
+    session_id IN (
+      SELECT vs.id FROM public.vehicle_sessions vs
+      JOIN public.ambassadeurs a ON a.id = vs.ambassador_id
+      WHERE a.profile_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    session_id IN (
+      SELECT vs.id FROM public.vehicle_sessions vs
+      JOIN public.ambassadeurs a ON a.id = vs.ambassador_id
+      WHERE a.profile_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "service_role_gps_points" ON public.gps_points;
+CREATE POLICY "service_role_gps_points" ON public.gps_points
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- ============================================================
+-- Vérification après exécution :
+-- ============================================================
+SELECT 
+  table_name,
+  (SELECT count(*) FROM information_schema.columns 
+   WHERE table_name = t.table_name AND table_schema = 'public') as nb_colonnes
+FROM information_schema.tables t
+WHERE table_schema = 'public' 
+  AND table_name IN ('vehicle_sessions', 'gps_points', 'vehicles')
+ORDER BY table_name;
 ```
+
+### Vérification après exécution
+
+Le script de vérification doit retourner :
+
+| table_name | nb_colonnes |
+|------------|-------------|
+| gps_points | 6 |
+| vehicle_sessions | 10 |
+| vehicles | (votre nombre + 1) |
 
 ---
 
-## 🗄️ Architecture Supabase
-
-### Tables utilisées
-
-```sql
--- Sessions de véhicule (créées par l'app mobile)
-vehicle_sessions:
-  id            UUID PK
-  ambassador_id UUID → ambassadeurs.id
-  vehicle_id    UUID → vehicles.id (nullable)
-  start_time    TIMESTAMPTZ
-  end_time      TIMESTAMPTZ (nullable)
-  active        BOOLEAN
-  nfc_tag_id    TEXT (UID du tag NFC scanné)
-  total_km      NUMERIC
-  points_earned INTEGER
-
--- Points GPS (envoyés toutes les 10s)
-gps_points:
-  id         UUID PK
-  session_id UUID → vehicle_sessions.id
-  lat        NUMERIC(10,7)
-  lng        NUMERIC(10,7)
-  speed      NUMERIC(6,2)  -- km/h
-  timestamp  TIMESTAMPTZ
-```
-
-### Fallback automatique
-
-Si `vehicle_sessions` n'existe pas encore, l'app utilise `tracking_sessions` (table existante).
-Si `gps_points` n'existe pas, l'app utilise `tracking_points`.
-
----
-
-## 🔧 Configuration
-
-### Variables d'environnement
-
-Aucune variable d'environnement à configurer — les clés Supabase sont déjà intégrées dans `lib/supabase.ts`.
-
-Pour un déploiement production, créez un fichier `.env` :
-
-```env
-EXPO_PUBLIC_SUPABASE_URL=https://szhiigkayxedicktgvls.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsIn...
-```
-
----
-
-## 📦 Structure du projet
+## Structure du projet
 
 ```
 woule-mobile/
 ├── app/
 │   ├── (auth)/
-│   │   ├── login.tsx          # Écran de connexion
-│   │   └── forgot-password.tsx
+│   │   ├── _layout.tsx          # Layout auth (pas de tabs)
+│   │   ├── login.tsx            # Écran connexion
+│   │   └── forgot-password.tsx  # Mot de passe oublié
 │   ├── (tabs)/
-│   │   ├── tracking.tsx       # ⭐ ÉCRAN PRINCIPAL — NFC + GPS
-│   │   ├── dashboard.tsx      # Tableau de bord
-│   │   └── profil.tsx         # Profil ambassadeur
-│   ├── _layout.tsx            # Root layout
-│   └── index.tsx              # Redirect auth
+│   │   ├── _layout.tsx          # Navigation par onglets
+│   │   ├── tracking.tsx         # ⭐ Écran principal NFC+GPS
+│   │   ├── dashboard.tsx        # Dashboard ambassadeur
+│   │   ├── campagnes.tsx        # Liste des campagnes
+│   │   ├── gains.tsx            # Points et récompenses
+│   │   └── profil.tsx           # Profil et déconnexion
+│   ├── _layout.tsx              # Layout racine
+│   └── index.tsx                # Redirect auth → tabs
+│
 ├── lib/
-│   ├── supabase.ts            # Client Supabase
-│   ├── nfc.ts                 # Service NFC (react-native-nfc-manager)
-│   └── tracking.ts            # Service GPS (expo-location)
+│   ├── supabase.ts              # Client Supabase configuré
+│   ├── nfc.ts                   # Service NFC (react-native-nfc-manager)
+│   └── tracking.ts              # Service GPS (expo-location + Supabase)
+│
 ├── hooks/
-│   └── useAuth.ts             # Hook auth Supabase
+│   └── useAuth.tsx              # Hook auth + profil ambassadeur
+│
+├── constants/
+│   └── Colors.ts                # Thème couleurs (#FFDB15 jaune)
+│
 ├── migrations/
-│   └── 0002_mobile_nfc_tables.sql  # SQL pour créer les tables
-└── constants/
-    └── Colors.ts              # Palette de couleurs
+│   └── 0002_mobile_nfc_tables.sql  # SQL à exécuter dans Supabase
+│
+├── app.json                     # Config Expo (NFC + background location)
+├── ecosystem.config.cjs         # Config PM2 pour dev server
+└── package.json
 ```
 
 ---
 
-## 🧪 Scénarios de test
+## Variables d'environnement
 
-| Scénario | Comment tester |
-|----------|---------------|
-| Login | Email/password ambassadeur Woulé |
-| NFC simulé | Bouton "Simuler un scan NFC" dans Expo Go |
-| GPS tracking | Tracker démarre, coords s'affichent |
-| Envoi Supabase | Table `gps_points` se remplit en temps réel |
-| Arrêt session | Bouton "Arrêter" → `active = false` en DB |
-| Points calculés | 10 pts/km dans `vehicle_sessions.points_earned` |
-| Fallback tables | Si `vehicle_sessions` absent → `tracking_sessions` |
+Les credentials Supabase sont directement dans `lib/supabase.ts` :
+
+```typescript
+const SUPABASE_URL = 'https://szhiigkayxedicktgvls.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+> Pour la production, utiliser un fichier `.env` avec `expo-constants` :
+> ```
+> EXPO_PUBLIC_SUPABASE_URL=https://szhiigkayxedicktgvls.supabase.co
+> EXPO_PUBLIC_SUPABASE_ANON_KEY=votre_clé_anon
+> ```
 
 ---
 
-## 📲 QR Code pour Expo Go
+## Tester NFC et GPS
 
-Après avoir lancé `npx expo start`, un QR code s'affiche dans le terminal.
+### Prérequis matériel
+- **iPhone 7+** avec iOS 13+ (NFC en lecture disponible)
+- **Tags NFC** : NTAG213, NTAG215, ou NTAG216 (autocollants NFC ~0,50€ pièce)
+  - Amazon : "autocollant NFC NTAG213"
+  - Ou utiliser le **mode simulation** intégré dans l'app
 
-**Pour le scanner :**
-1. iPhone → Appareil photo → pointer vers le QR code
-2. Appuyer sur la notification → Expo Go s'ouvre
-3. L'app se charge (environ 10-30 secondes la première fois)
+### Test NFC
 
-Si le QR code ne fonctionne pas, essayez :
+#### Sur iPhone physique (recommandé)
+1. Ouvrir l'app → onglet 🚗 Tracking
+2. Appuyer sur **"Scanner un tag NFC"**
+3. Approcher l'iPhone du tag NFC (à ~3cm)
+4. Le tag est détecté → vibration + badge vert "Tag détecté"
+5. La session démarre automatiquement
+
+#### Mode simulation (sans tag NFC physique)
+Si l'iPhone ne supporte pas NFC ou si `react-native-nfc-manager` n'est pas disponible dans Expo Go :
+1. L'app détecte automatiquement que NFC n'est pas disponible
+2. L'écran affiche **"Simuler un Tag NFC"** (bouton jaune)
+3. Appuyer sur ce bouton → simule un tag avec un ID généré aléatoirement
+4. La session démarre avec le tag simulé
+
+> **Note importante** : `react-native-nfc-manager` **nécessite un build natif** (EAS Build).  
+> Avec **Expo Go standard**, le module NFC n'est pas inclus → mode simulation automatique.  
+> Pour le vrai NFC, voir la section [Build production](#build-production-eas).
+
+### Test GPS
+
+1. Une fois la session démarrée (NFC ou simulation)
+2. Sortir à l'extérieur (ou activer la localisation simulée dans iOS Settings > Developer)
+3. L'app affiche les coordonnées GPS en temps réel
+4. Vérifier dans Supabase → Table `gps_points` → nouvelles lignes toutes les 10s
+
+### Vérification Supabase
+
+```sql
+-- Voir les sessions actives
+SELECT id, ambassador_id, nfc_tag_id, start_time, active, total_km
+FROM vehicle_sessions
+ORDER BY created_at DESC
+LIMIT 10;
+
+-- Voir les derniers points GPS
+SELECT session_id, lat, lng, speed, timestamp
+FROM gps_points
+ORDER BY timestamp DESC
+LIMIT 20;
+```
+
+### Test en arrière-plan
+
+1. Démarrer une session de tracking
+2. Appuyer sur le bouton Home de l'iPhone (l'app passe en arrière-plan)
+3. Attendre 30 secondes
+4. Revenir dans l'app → le compteur a continué
+5. Vérifier dans Supabase → nouveaux points GPS insérés
+
+---
+
+## Build production (EAS)
+
+Pour un **vrai NFC** sur iPhone (pas seulement simulation), il faut un build natif.
+
+### Option 1 : Build iOS Simulator (gratuit)
 ```bash
-npx expo start --tunnel
+# Installer EAS CLI
+npm install -g eas-cli
+
+# Se connecter à Expo
+eas login
+
+# Build pour simulateur
+eas build --platform ios --profile development
 ```
-Cela crée un tunnel public accessible depuis n'importe quel réseau.
+
+### Option 2 : Build TestFlight (nécessite compte Apple Developer 99€/an)
+```bash
+eas build --platform ios --profile preview
+```
+
+### Configuration EAS (eas.json)
+```json
+{
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": { "simulator": true }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": { "buildConfiguration": "Release" }
+    }
+  }
+}
+```
 
 ---
 
-## 🔴 Limitations connues avec Expo Go
+## Repository GitHub
 
-| Feature | Expo Go | EAS Build (compilé) |
-|---------|---------|---------------------|
-| GPS Tracking | ✅ | ✅ |
-| Supabase Auth | ✅ | ✅ |
-| NFC réel | ❌ (simulation uniquement) | ✅ |
-| Background GPS | ⚠️ (limité) | ✅ |
-| Notifications push | ❌ | ✅ |
+🔗 **https://github.com/MrRay971/woule-mobile**
+
+### Cloner et lancer localement
+```bash
+# Cloner
+git clone https://github.com/MrRay971/woule-mobile.git
+cd woule-mobile
+
+# Installer les dépendances
+npm install --legacy-peer-deps
+
+# Lancer Metro Bundler
+npx expo start --lan
+
+# Scanner le QR code avec Expo Go sur iPhone
+```
+
+### Branches
+- `main` : code de production stable
 
 ---
 
-## 📞 Support
+## Stack technique
 
-- **Web app** : https://woule-web.vercel.app
-- **Supabase** : https://supabase.com/dashboard/project/szhiigkayxedicktgvls
-- **GitHub** : https://github.com/MrRay971/woule-mobile
+| Composant | Technologie |
+|-----------|-------------|
+| Framework | React Native 0.83 + Expo SDK 55 |
+| Navigation | Expo Router v4 |
+| Auth | Supabase Auth (email/password) |
+| Database | Supabase (PostgreSQL) |
+| NFC | react-native-nfc-manager 3.17 |
+| GPS | expo-location (background) |
+| Style | StyleSheet (thème sombre #131726) |
+| Accent | Jaune Woulé #FFDB15 |
+
+---
+
+## Déploiement
+
+- **Platform** : Expo Go (développement) / EAS Build (production)
+- **Backend** : Supabase (existant, projet woule-web)
+- **Status** : ✅ Fonctionnel en mode simulation, NFC natif nécessite EAS Build
+- **Dernière mise à jour** : Avril 2026
