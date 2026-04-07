@@ -1,144 +1,185 @@
 /**
  * app/index.tsx
- * Splash screen avec animation de chargement + barre de progression
+ * Splash screen — logo WOULÉ qui se remplit en jaune de bas en haut (effet bouteille)
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native'
+import { View, Text, StyleSheet, Animated, Easing, Dimensions } from 'react-native'
+import Svg, { Path, Rect } from 'react-native-svg'
 import { useRouter } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { Colors } from '@/constants/Colors'
 
-export default function Index() {
-  const router = useRouter()
-  const [progress, setProgress] = useState(0)
-  const [statusText, setStatusText] = useState('Initialisation...')
-  const progressAnim = useRef(new Animated.Value(0)).current
-  const logoOpacity = useRef(new Animated.Value(0)).current
-  const logoScale = useRef(new Animated.Value(0.8)).current
-  const dotAnim1 = useRef(new Animated.Value(0.3)).current
-  const dotAnim2 = useRef(new Animated.Value(0.3)).current
-  const dotAnim3 = useRef(new Animated.Value(0.3)).current
+const { width: SW } = Dimensions.get('window')
+const LOGO_W = SW * 0.82
+const LOGO_H = LOGO_W * 0.36   // ratio du logotype WOULÉ
+
+// Messages selon progression
+const STEPS: [number, string][] = [
+  [0,   'Démarrage...'],
+  [20,  'Connexion au serveur...'],
+  [42,  'Chargement des données...'],
+  [65,  'Vérification du compte...'],
+  [85,  'Préparation de l\'interface...'],
+  [98,  'Presque prêt...'],
+  [100, 'C\'est parti ! 🚀'],
+]
+
+function getMsg(p: number) {
+  let m = STEPS[0][1]
+  for (const [t, s] of STEPS) { if (p >= t) m = s }
+  return m
+}
+
+// ─── Composant principal ──────────────────────────────────────────────────────
+
+export default function SplashScreen() {
+  const router       = useRouter()
+  const [pct, setPct] = useState(0)
+  const fillAnim     = useRef(new Animated.Value(0)).current
+  const fadeIn       = useRef(new Animated.Value(0)).current
+
+  const goTo = (target: number, dur: number) => {
+    setPct(target)
+    Animated.timing(fillAnim, {
+      toValue: target / 100,
+      duration: dur,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start()
+  }
 
   useEffect(() => {
-    // Animation d'entrée du logo
-    Animated.parallel([
-      Animated.timing(logoOpacity, {
-        toValue: 1,
-        duration: 600,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.spring(logoScale, {
-        toValue: 1,
-        tension: 60,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-    ]).start()
+    // Fade in global
+    Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: true }).start()
 
-    // Animation des points (loader)
-    const animateDots = () => {
-      Animated.sequence([
-        Animated.timing(dotAnim1, { toValue: 1, duration: 300, useNativeDriver: true }),
-        Animated.timing(dotAnim2, { toValue: 1, duration: 300, useNativeDriver: true }),
-        Animated.timing(dotAnim3, { toValue: 1, duration: 300, useNativeDriver: true }),
-        Animated.delay(200),
-        Animated.parallel([
-          Animated.timing(dotAnim1, { toValue: 0.3, duration: 200, useNativeDriver: true }),
-          Animated.timing(dotAnim2, { toValue: 0.3, duration: 200, useNativeDriver: true }),
-          Animated.timing(dotAnim3, { toValue: 0.3, duration: 200, useNativeDriver: true }),
-        ]),
-      ]).start(() => animateDots())
-    }
-    animateDots()
-
-    // Simulation de progression réaliste
-    const steps = [
-      { pct: 15, text: 'Connexion au serveur...', delay: 300 },
-      { pct: 35, text: 'Chargement des données...', delay: 600 },
-      { pct: 60, text: 'Vérification du compte...', delay: 900 },
-      { pct: 80, text: 'Préparation de l\'interface...', delay: 1200 },
-      { pct: 95, text: 'Presque prêt...', delay: 1500 },
+    // Progression simulée
+    const schedule: [number, number, number][] = [
+      [20,  400,  600],
+      [42,  900,  500],
+      [65,  1400, 600],
+      [85,  1900, 500],
     ]
+    schedule.forEach(([t, delay, dur]) => setTimeout(() => goTo(t, dur), delay))
 
-    steps.forEach(({ pct, text, delay }) => {
-      setTimeout(() => {
-        setProgress(pct)
-        setStatusText(text)
-        Animated.timing(progressAnim, {
-          toValue: pct / 100,
-          duration: 400,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: false,
-        }).start()
-      }, delay)
-    })
-
-    // Vérification auth après animation
+    // Auth check + fin
     setTimeout(async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      setProgress(100)
-      setStatusText('Prêt !')
-      Animated.timing(progressAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: false,
-      }).start()
+      goTo(100, 500)
       setTimeout(() => {
-        if (session) {
-          router.replace('/(tabs)/tracking')
-        } else {
-          router.replace('/(auth)/login')
-        }
-      }, 400)
-    }, 1800)
+        router.replace(session ? '/(tabs)/tracking' : '/(auth)/login')
+      }, 700)
+    }, 2400)
   }, [])
 
-  const barWidth = progressAnim.interpolate({
-    inputRange: [0, 1],
+  // Hauteur du masque jaune (remonte de bas en haut)
+  const maskHeight = fillAnim.interpolate({
+    inputRange:  [0, 1],
+    outputRange: [0, LOGO_H],
+  })
+
+  // Largeur de la barre
+  const barWidth = fillAnim.interpolate({
+    inputRange:  [0, 1],
     outputRange: ['0%', '100%'],
   })
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { opacity: fadeIn }]}>
 
-      {/* Logo animé */}
-      <Animated.View style={[styles.logoContainer, {
-        opacity: logoOpacity,
-        transform: [{ scale: logoScale }],
-      }]}>
-        <View style={styles.logoCircle}>
-          <Text style={styles.logoEmoji}>🚗</Text>
+      {/* ── Logo avec effet remplissage ─────────────────────────────────── */}
+      <View style={{ width: LOGO_W, height: LOGO_H, marginBottom: 52 }}>
+
+        {/* Couche 1 : logo en gris (version non remplie) */}
+        <View style={StyleSheet.absoluteFill}>
+          <WouleSvg width={LOGO_W} height={LOGO_H} color="#3A3A3A" />
         </View>
-        <Text style={styles.logoTitle}>Woulé</Text>
-        <Text style={styles.logoSubtitle}>GPS • NFC • Récompenses</Text>
-      </Animated.View>
 
-      {/* Barre de progression */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <Animated.View style={[styles.progressFill, { width: barWidth }]}>
-            {/* Effet de brillance */}
-            <View style={styles.progressShine} />
+        {/* Couche 2 : logo en jaune, masqué depuis le bas */}
+        <Animated.View style={[
+          StyleSheet.absoluteFill,
+          {
+            overflow:   'hidden',
+            justifyContent: 'flex-end',  // ancre en bas
+          },
+        ]}>
+          {/* Ce View remonte progressivement depuis le bas */}
+          <Animated.View style={{ height: maskHeight, overflow: 'hidden', justifyContent: 'flex-end' }}>
+            {/* On affiche le logo complet mais on ne montre que la partie du bas */}
+            <View style={{ position: 'absolute', bottom: 0, left: 0, width: LOGO_W, height: LOGO_H }}>
+              <WouleSvg width={LOGO_W} height={LOGO_H} color={Colors.yellow} />
+            </View>
           </Animated.View>
-        </View>
-        <View style={styles.progressInfo}>
-          <Text style={styles.progressPct}>{progress}%</Text>
-          <View style={styles.dotsRow}>
-            <Animated.View style={[styles.dot, { opacity: dotAnim1 }]} />
-            <Animated.View style={[styles.dot, { opacity: dotAnim2 }]} />
-            <Animated.View style={[styles.dot, { opacity: dotAnim3 }]} />
-          </View>
-        </View>
-        <Text style={styles.statusText}>{statusText}</Text>
+        </Animated.View>
       </View>
 
-      {/* Version */}
+      {/* ── Pourcentage ─────────────────────────────────────────────────── */}
+      <View style={styles.pctRow}>
+        <Text style={styles.pctNum}>{pct}</Text>
+        <Text style={styles.pctSym}>%</Text>
+      </View>
+
+      {/* ── Message ─────────────────────────────────────────────────────── */}
+      <Text style={styles.msg}>{getMsg(pct)}</Text>
+
+      {/* ── Barre fine ──────────────────────────────────────────────────── */}
+      <View style={styles.track}>
+        <Animated.View style={[styles.fill, { width: barWidth }]} />
+      </View>
+
       <Text style={styles.version}>v1.0.0</Text>
-    </View>
+    </Animated.View>
   )
 }
+
+// ─── Logo WOULÉ en SVG ────────────────────────────────────────────────────────
+// viewBox 260×94 : carré "W" à gauche + texte "OULÉ" à droite
+
+interface SvgProps { width: number; height: number; color: string }
+
+function WouleSvg({ width, height, color }: SvgProps) {
+  return (
+    <Svg width={width} height={height} viewBox="0 0 260 94">
+      {/* Carré fond */}
+      <Rect x="1" y="1" width="80" height="92" rx="5" fill={color} />
+      {/* W blanc à l'intérieur du carré */}
+      <Path
+        d="M13 18 L26 76 L41 44 L56 76 L69 18"
+        stroke={Colors.dark}
+        strokeWidth="11"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        fill="none"
+      />
+      {/* O */}
+      <Path
+        d="M96 47 C96 28 108 16 122 16 C136 16 148 28 148 47 C148 66 136 78 122 78 C108 78 96 66 96 47 Z"
+        fill={color}
+      />
+      <Path
+        d="M106 47 C106 33 113 26 122 26 C131 26 138 33 138 47 C138 61 131 68 122 68 C113 68 106 61 106 47 Z"
+        fill={Colors.dark}
+      />
+      {/* U */}
+      <Path
+        d="M156 16 L156 54 C156 68 162 78 178 78 C194 78 200 68 200 54 L200 16 L190 16 L190 54 C190 62 186 68 178 68 C170 68 166 62 166 54 L166 16 Z"
+        fill={color}
+      />
+      {/* L */}
+      <Path d="M208 16 L208 78 L240 78 L240 68 L218 68 L218 16 Z" fill={color} />
+      {/* É — barre verticale */}
+      <Path d="M246 16 L246 78 L260 78 L260 68 L256 68 L256 48 L258 48 L258 38 L256 38 L256 26 L260 26 L260 16 Z" fill={color} />
+      {/* É — barres horizontales */}
+      <Rect x="246" y="16" width="14" height="10" fill={color} />
+      <Rect x="246" y="38" width="12" height="10" fill={color} />
+      <Rect x="246" y="68" width="14" height="10" fill={color} />
+      {/* Accent aigu du É */}
+      <Path d="M252 4 L258 14 L255 14 L249 4 Z" fill={color} />
+    </Svg>
+  )
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -146,105 +187,48 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: 24,
   },
-
-  // Logo
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 80,
-  },
-  logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 30,
-    backgroundColor: Colors.yellow,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: Colors.yellow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 12,
-  },
-  logoEmoji: {
-    fontSize: 48,
-  },
-  logoTitle: {
-    fontSize: 42,
-    fontWeight: '900',
-    color: Colors.white,
-    letterSpacing: 2,
-  },
-  logoSubtitle: {
-    fontSize: 13,
-    color: Colors.gray,
-    marginTop: 6,
-    letterSpacing: 1,
-  },
-
-  // Barre de progression
-  progressContainer: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  progressBar: {
-    width: '100%',
-    height: 6,
-    backgroundColor: Colors.darkCard,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: Colors.yellow,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressShine: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 3,
-  },
-  progressInfo: {
+  pctRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 8,
+    alignItems: 'flex-end',
+    marginBottom: 10,
   },
-  progressPct: {
-    fontSize: 13,
+  pctNum: {
+    fontSize: 64,
+    fontWeight: '900',
+    color: Colors.yellow,
+    lineHeight: 68,
+  },
+  pctSym: {
+    fontSize: 30,
     fontWeight: '700',
     color: Colors.yellow,
+    marginBottom: 8,
+    marginLeft: 3,
   },
-  dotsRow: {
-    flexDirection: 'row',
-    gap: 5,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.yellow,
-  },
-  statusText: {
-    fontSize: 13,
+  msg: {
+    fontSize: 14,
     color: Colors.gray,
+    marginBottom: 36,
     textAlign: 'center',
   },
-
-  // Version
+  track: {
+    width: '100%',
+    height: 3,
+    backgroundColor: '#222',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  fill: {
+    height: '100%',
+    backgroundColor: Colors.yellow,
+    borderRadius: 2,
+  },
   version: {
     position: 'absolute',
-    bottom: 40,
-    fontSize: 12,
-    color: Colors.darkBorder,
+    bottom: 38,
+    fontSize: 11,
+    color: '#333',
   },
 })
