@@ -39,35 +39,23 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="campagnes"
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📢" label="Campagnes" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
         name="tracking"
         options={{
           tabBarIcon: ({ focused }) => (
             <View style={{
-              width: 56, height: 56, borderRadius: 28,
-              backgroundColor: focused ? Colors.yellow : 'rgba(255,219,21,0.2)',
+              width: 60, height: 60, borderRadius: 30,
+              backgroundColor: focused ? Colors.yellow : Colors.yellow + '25',
               justifyContent: 'center', alignItems: 'center',
-              marginTop: -20,
+              marginTop: -22,
               shadowColor: Colors.yellow,
               shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: focused ? 0.6 : 0.2,
-              shadowRadius: 12,
-              elevation: 8,
+              shadowOpacity: focused ? 0.7 : 0.3,
+              shadowRadius: 14,
+              elevation: 10,
             }}>
-              <Text style={{ fontSize: 24 }}>🚗</Text>
+              <Text style={{ fontSize: 26 }}>🏷️</Text>
             </View>
           ),
-        }}
-      />
-      <Tabs.Screen
-        name="gains"
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon emoji="💰" label="Gains" focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -76,6 +64,9 @@ export default function TabsLayout() {
           tabBarIcon: ({ focused }) => <TabIcon emoji="👤" label="Profil" focused={focused} />,
         }}
       />
+      {/* Hide campagnes and gains from tab bar but keep them accessible */}
+      <Tabs.Screen name="campagnes" options={{ href: null }} />
+      <Tabs.Screen name="gains" options={{ href: null }} />
     </Tabs>
   )
 }
