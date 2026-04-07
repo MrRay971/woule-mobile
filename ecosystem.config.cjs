@@ -8,7 +8,8 @@ module.exports = {
       env: {
         NODE_ENV: 'development',
         CI: '1',
-        EXPO_NO_DOTENV: '0',
+        // Forcer l'host public du sandbox pour que le manifest soit accessible
+        REACT_NATIVE_PACKAGER_HOSTNAME: '8081-i8od27u6l47am64mwmde1-82b888ba.sandbox.novita.ai',
       },
       watch: false,
       instances: 1,

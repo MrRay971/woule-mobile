@@ -66,6 +66,10 @@
         "projectId": "b443ad36-530b-4a84-bf19-caaa913eb161"
       }
     },
-    "owner": "mrray"
+    "owner": "mrray",
+    "runtimeVersion": "exposdk:54.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/b443ad36-530b-4a84-bf19-caaa913eb161"
+    }
   }
 }
